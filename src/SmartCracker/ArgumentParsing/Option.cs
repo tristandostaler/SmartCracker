@@ -1,7 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace SmartCracker.ArgumentParsing
 {
@@ -13,11 +10,13 @@ namespace SmartCracker.ArgumentParsing
         public string LongArgument { get; set; }
         public string DefaultValue { get; set; }
         public string GivenInput { get; set; }
+        public OptionTypeEnum Type { get; set; }
         private Action<Option> ValidationAction { get; set; }
 
-        public Option(string explaination, string shortArgument = "", string longArgument = "", string defaultValue = "", bool required = false, Action<Option> validationAction = null)
+        public Option(string explaination, OptionTypeEnum optionType, string shortArgument = "", string longArgument = "", string defaultValue = "", bool required = false, Action<Option> validationAction = null)
         {
             Explaination = explaination.Trim();
+            Type = optionType;
             ShortArgument = shortArgument.Trim();
             LongArgument = longArgument.Trim();
             Required = required;
