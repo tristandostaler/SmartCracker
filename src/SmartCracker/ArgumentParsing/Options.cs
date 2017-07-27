@@ -27,10 +27,10 @@ Example of usage:
         public static Options Parse(string[] args)
         {
             var options = new Options();
-            options.ParseOptions(args);
             try
             {
-                options.ValidateAllOptions();
+                options.ParseOptions(args);
+                options.ValidateSelectedOptions();
             }
             catch (Exception ex)
             {
@@ -41,9 +41,10 @@ Example of usage:
             return options;
         }
 
-        public List<Option> SelectedOptions { get; set; }
+        public Dictionary<string, Option> SelectedOptions { get; set; }
 
         private List<Option> _allOptions = new List<Option>();
+        private Action _postValidation;
 
         private string GetUsage()
         {
@@ -72,37 +73,52 @@ Example of usage:
 
         public Options()
         {
-            SelectedOptions = new List<Option>();
+            SelectedOptions = new Dictionary<string, Option>();
             SetupAllOptions();
+            try
+            {
+                ValidateAllOption();
+                _postValidation();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(this.GetUsage());
+                Console.WriteLine($"\nAn error occured: {ex.Message}\n");
+                throw;
+            }
         }
 
         private void SetupAllOptions()
         {
-            _allOptions.Add(new Option(explaination: "This is a custom dictionnary that you want to" 
-                    + " provide that will be added to all other dictionnaries", 
+            var option1 = new Option(optionName: "Custum dictio", explaination: "This is a custom dictionnary that you want to"
+                    + " provide that will be added to all other dictionnaries",
                 optionType: OptionTypeEnum.String,
-                shortArgument: "d", longArgument: "customDict", required: false, 
+                shortArgument: "d", longArgument: "customDict", required: false,
                 validationAction: (option) =>
                 {
                     if (!File.Exists(option.GivenInput))
                     {
                         throw new Exception("The dictionnary file provided does not exists!");
                     }
-                }));
-            _allOptions.Add(new Option(explaination: "The minimum password length for the password cracking", 
+                });
+            _allOptions.Add(option1);
+
+            var option2 = new Option(optionName: "Minimum cracking length", explaination: "The minimum password length for the password cracking",
                 optionType: OptionTypeEnum.Int,
-                longArgument: "minLen", defaultValue: "6", required: false, 
+                longArgument: "minLen", defaultValue: "6", required: false,
                 validationAction: (option) =>
                 {
                     int outValue = -1;
-                    if(!int.TryParse(option.GivenInput, out outValue) || outValue < 1)
+                    if (!int.TryParse(option.GivenInput, out outValue) || outValue < 1)
                     {
                         throw new Exception("The minimum cracking length need to be a number and > 0");
                     }
-                }));
-            _allOptions.Add(new Option(explaination: "The maximum password length for the password cracking",
+                });
+            _allOptions.Add(option2);
+
+            var option3 = new Option(optionName: "Maximum cracking length", explaination: "The maximum password length for the password cracking",
                 optionType: OptionTypeEnum.Int,
-                longArgument: "maxLen", defaultValue: "12", required: false, 
+                longArgument: "maxLen", defaultValue: "12", required: false,
                 validationAction: (option) =>
                 {
                     int outValue = -1;
@@ -110,46 +126,70 @@ Example of usage:
                     {
                         throw new Exception("The maximum cracking length need to be a number and > 0");
                     }
-                }));
-            _allOptions.Add(new Option(explaination: "This is the url to crawl with CeWL", 
+                });
+            _allOptions.Add(option3);
+
+            var option4 = new Option(optionName: "CeWL URl", explaination: "This is the url to crawl with CeWL",
                 optionType: OptionTypeEnum.String,
-                shortArgument: "u", longArgument: "url", required: false, 
+                shortArgument: "u", longArgument: "url", required: false,
                 validationAction: (option) =>
                 {
                     if (!File.Exists(option.GivenInput))
                     {
                         throw new Exception("The dictionnary file provided does not exists!");
                     }
-                }));
-            
-        }
+                });
+            _allOptions.Add(option4);
 
-        private void ValidateAllOptions()
-        {
-            foreach(var requiredOption in _allOptions.Where(o => o.Required).ToList())
+            _postValidation = () =>
             {
-                if (!SelectedOptions.Contains(requiredOption))
+                if(option2.GivenInput > option3.GivenInput)
                 {
-                    throw new Exception($"You are missing required options! The following option is required: {requiredOption.Explaination}");
+                    throw new Exception($"{option2.Name} needs to be smaller or equal to {option3.Name}!");
+                }
+                //TODO
+            };
+        }
+        private void ValidateAllOption()
+        {
+            foreach(var option in _allOptions)
+            {
+                if (string.IsNullOrEmpty(option.Name) || string.IsNullOrEmpty(option.Explaination))
+                {
+                    if (!string.IsNullOrEmpty(option.Explaination))
+                    {
+                        throw new Exception("The name for every option is mandatory! " + option.Explaination);
+                    }
+                    else
+                    {
+                        throw new Exception("The name and the explaination for every option is required!");
+                    }
+                }
+                if (string.IsNullOrEmpty(option.ShortArgument) && string.IsNullOrEmpty(option.LongArgument))
+                {
+                    throw new Exception("You need to provide a short argument, a long argument or both for option " + option.Name);
+                }
+                if (_allOptions.Where(o =>
+                     (o.LongArgument == option.LongArgument || o.ShortArgument == option.ShortArgument)
+                     && o != option).ToList().Count != 0)
+                {
+                    throw new Exception("All arguments, short or long, needs to be unique for option " + option.Name);
+                }
+            }
+        }
+        private void ValidateSelectedOptions()
+        {
+            foreach(var requiredOption in _allOptions.Where(o => o.Required))
+            {
+                if (!SelectedOptions.Values.Contains(requiredOption))
+                {
+                    throw new Exception($"You are missing required options! The following option is required: {requiredOption.Name}");
                 }
             }
 
-            foreach (var option in SelectedOptions)
+            foreach (var option in SelectedOptions.Values)
             {
-                if(string.IsNullOrEmpty(option.ShortArgument) && string.IsNullOrEmpty(option.LongArgument))
-                {
-                    throw new Exception("You need to provide a short argument, a long argument or both for option " + option.Explaination);
-                }
-                if(_allOptions.Where(o => 
-                    (o.LongArgument == option.LongArgument || o.ShortArgument == option.ShortArgument) 
-                    && o != option).ToList().Count != 0)
-                {
-                    throw new Exception("All arguments, short or long, needs to be unique for option " + option.Explaination);
-                }
-                if(option.Required)
-                {
-                    option.ValidateAction();
-                } 
+                option.ValidateAction();
             }
         }
 
@@ -162,15 +202,20 @@ Example of usage:
                 {
                     if(option.ShortArgument == arg || option.LongArgument == arg)
                     {
-                        SelectedOptions.Add(option);
+                        SelectedOptions.Add(option.Name, option);
                         switch(option.Type)
                         {
                             case OptionTypeEnum.Double:
+                                option.GivenInput = double.Parse(args[i + 1]);
+                                break;
                             case OptionTypeEnum.Int:
+                                option.GivenInput = int.Parse(args[i + 1]);
+                                break;
                             case OptionTypeEnum.String:
                                 option.GivenInput = args[i+1];
                                 break;
                             case OptionTypeEnum.Switch:
+                                option.GivenInput = true;
                                 break;
                         }
                         continue;
