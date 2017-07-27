@@ -126,7 +126,15 @@ Example of usage:
 
         private void ValidateAllOptions()
         {
-            foreach(var option in SelectedOptions)
+            foreach(var requiredOption in _allOptions.Where(o => o.Required).ToList())
+            {
+                if (!SelectedOptions.Contains(requiredOption))
+                {
+                    throw new Exception($"You are missing required options! The following option is required: {requiredOption.Explaination}");
+                }
+            }
+
+            foreach (var option in SelectedOptions)
             {
                 if(string.IsNullOrEmpty(option.ShortArgument) && string.IsNullOrEmpty(option.LongArgument))
                 {
@@ -140,13 +148,8 @@ Example of usage:
                 }
                 if(option.Required)
                 {
-                    if(!_allOptions.Where(o => o.Required).ToList().Contains(option))
-                    {
-                        throw new Exception($"The following option is required: {option.Explaination}");
-                    }
                     option.ValidateAction();
-                }
-                    
+                } 
             }
         }
 
