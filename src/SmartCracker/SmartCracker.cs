@@ -1,6 +1,7 @@
 ﻿using System;
 using SmartCracker.OSCommands;
 using SmartCracker.ArgumentParsing;
+using System.Collections.Generic;
 
 namespace SmartCracker
 {

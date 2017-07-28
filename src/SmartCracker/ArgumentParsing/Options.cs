@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SmartCracker.Resources;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -7,48 +8,34 @@ namespace SmartCracker.ArgumentParsing
 {
     public class Options
     {
-        private string _greetingHeader = @"
- .oooooo..o                                          .     .oooooo.                                oooo                           
-d8P'    `Y8                                        .o8    d8P'  `Y8b                               `888                           
-Y88bo.      ooo. .oo.  .oo.    .oooo.   oooo d8b .o888oo 888          oooo d8b  .oooo.    .ooooo.   888  oooo   .ooooo.  oooo d8b 
- `'Y8888o.  `888P'Y88bP'Y88b  `P  )88b  `888''8P   888   888          `888''8P `P  )88b  d88' `'Y8  888 .8P'   d88' `88b `888''8P 
-     `'Y88b  888   888   888   .oP'888   888       888   888           888      .oP'888  888        888888.    888ooo888  888     
-oo     .d8P  888   888   888  d8(  888   888       888 . `88b    ooo   888     d8(  888  888   .o8  888 `88b.  888    .o  888     
-8''88888P'  o888o o888o o888o `Y888''8o d888b      '888'  `Y8bood8P'  d888b    `Y888''8o `Y8bod8P' o888o o888o `Y8bod8P' d888b    
-                                                                                                                                                                                                                                    
-                                                  Designed by Tristan Dostaler                                                   
-
-";
-        private string _greetingFooter = @"
-Example of usage:
-    SmartCracker -u http://www.example.com -min 6 -max 10 hash.txt
-";
-
-        public static Options Parse(string[] args)
-        {
-            var options = new Options();
-            try
-            {
-                options.ParseOptions(args);
-                options.ValidateSelectedOptions();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(options.GetUsage());
-                Console.WriteLine($"\nAn error occured: {ex.Message}\n");
-                throw;
-            }
-            return options;
-        }
-
         public Dictionary<string, Option> SelectedOptions { get; set; }
-
         private List<Option> _allOptions = new List<Option>();
         private Action _postValidation;
 
+        private Options()
+        {
+            SelectedOptions = new Dictionary<string, Option>();
+            SetupAllOptions();
+            try
+            {
+                ValidateAllOption();
+            }
+            catch (Exception ex)
+            {
+                this.PrintUsage();
+                Console.WriteLine($"\nAn error occured: {ex.Message}\n");
+                throw;
+            }
+        }
+
+        private void PrintUsage()
+        {
+            Console.WriteLine(GetUsage());
+        }
+
         private string GetUsage()
         {
-            var toReturn = _greetingHeader;
+            var toReturn = Strings.GreetingHeader;
             foreach (var option in _allOptions)
             {
                 toReturn += $"\t";
@@ -66,31 +53,25 @@ Example of usage:
                     + "\n";
             }
 
-            toReturn += _greetingFooter;
+            toReturn += Strings.GreetingFooter;
 
             return toReturn;
         }
-
-        public Options()
-        {
-            SelectedOptions = new Dictionary<string, Option>();
-            SetupAllOptions();
-            try
-            {
-                ValidateAllOption();
-                _postValidation();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(this.GetUsage());
-                Console.WriteLine($"\nAn error occured: {ex.Message}\n");
-                throw;
-            }
-        }
-
+        
         private void SetupAllOptions()
         {
-            var option1 = new Option(optionName: "Custum dictio", explaination: "This is a custom dictionnary that you want to"
+            var generalHelper = new Option(optionName: Strings.Helper, explaination: "Display this help screen", 
+                optionType: OptionTypeEnum.Switch, shortArgument: "h", longArgument: "help", validationAction: (option) =>
+                {
+                    if (option.GivenInput)
+                    {
+                        this.PrintUsage();
+                        Environment.Exit(0);
+                    }
+                });
+            _allOptions.Add(generalHelper);
+
+            var customDictionOption = new Option(optionName: Strings.CustomDictio, explaination: "This is a custom dictionnary that you want to"
                     + " provide that will be added to all other dictionnaries",
                 optionType: OptionTypeEnum.String,
                 shortArgument: "d", longArgument: "customDict", required: false,
@@ -101,35 +82,33 @@ Example of usage:
                         throw new Exception("The dictionnary file provided does not exists!");
                     }
                 });
-            _allOptions.Add(option1);
+            _allOptions.Add(customDictionOption);
 
-            var option2 = new Option(optionName: "Minimum cracking length", explaination: "The minimum password length for the password cracking",
+            var minCrackingLength = new Option(optionName: Strings.MinimumCrackingLength, explaination: "The minimum password length for the password cracking",
                 optionType: OptionTypeEnum.Int,
                 longArgument: "minLen", defaultValue: "6", required: false,
                 validationAction: (option) =>
                 {
-                    int outValue = -1;
-                    if (!int.TryParse(option.GivenInput, out outValue) || outValue < 1)
+                    if (option.GivenInput < 1)
                     {
                         throw new Exception("The minimum cracking length need to be a number and > 0");
                     }
                 });
-            _allOptions.Add(option2);
+            _allOptions.Add(minCrackingLength);
 
-            var option3 = new Option(optionName: "Maximum cracking length", explaination: "The maximum password length for the password cracking",
+            var maxCrackingLength = new Option(optionName: Strings.MaximumCrackingLength, explaination: "The maximum password length for the password cracking",
                 optionType: OptionTypeEnum.Int,
                 longArgument: "maxLen", defaultValue: "12", required: false,
                 validationAction: (option) =>
                 {
-                    int outValue = -1;
-                    if (!int.TryParse(option.GivenInput, out outValue) || outValue < 1)
+                    if (option.GivenInput < 1)
                     {
                         throw new Exception("The maximum cracking length need to be a number and > 0");
                     }
                 });
-            _allOptions.Add(option3);
+            _allOptions.Add(maxCrackingLength);
 
-            var option4 = new Option(optionName: "CeWL URl", explaination: "This is the url to crawl with CeWL",
+            var cewlUrl = new Option(optionName: Strings.CeWLUrl, explaination: "This is the url to crawl with CeWL",
                 optionType: OptionTypeEnum.String,
                 shortArgument: "u", longArgument: "url", required: false,
                 validationAction: (option) =>
@@ -139,13 +118,14 @@ Example of usage:
                         throw new Exception("The dictionnary file provided does not exists!");
                     }
                 });
-            _allOptions.Add(option4);
+            _allOptions.Add(cewlUrl);
+
 
             _postValidation = () =>
             {
-                if(option2.GivenInput > option3.GivenInput)
+                if(minCrackingLength.GivenInput > maxCrackingLength.GivenInput)
                 {
-                    throw new Exception($"{option2.Name} needs to be smaller or equal to {option3.Name}!");
+                    throw new Exception($"{minCrackingLength.Name} needs to be smaller or equal to {maxCrackingLength.Name}!");
                 }
                 //TODO
             };
@@ -170,7 +150,10 @@ Example of usage:
                     throw new Exception("You need to provide a short argument, a long argument or both for option " + option.Name);
                 }
                 if (_allOptions.Where(o =>
-                     (o.LongArgument == option.LongArgument || o.ShortArgument == option.ShortArgument)
+                     ((!string.IsNullOrEmpty(o.LongArgument) && !string.IsNullOrEmpty(option.LongArgument) 
+                        && o.LongArgument == option.LongArgument) 
+                     || (!string.IsNullOrEmpty(o.ShortArgument) && !string.IsNullOrEmpty(option.ShortArgument) 
+                        && o.ShortArgument == option.ShortArgument))
                      && o != option).ToList().Count != 0)
                 {
                     throw new Exception("All arguments, short or long, needs to be unique for option " + option.Name);
@@ -191,6 +174,8 @@ Example of usage:
             {
                 option.ValidateAction();
             }
+            
+            _postValidation();
         }
 
         private void ParseOptions(string[] args)
@@ -200,28 +185,67 @@ Example of usage:
                 var arg = args[i];
                 foreach(var option in _allOptions)
                 {
-                    if(option.ShortArgument == arg || option.LongArgument == arg)
+                    if($"-{option.ShortArgument}".ToLower() == arg.ToLower() || $"--{option.LongArgument}".ToLower() == arg.ToLower())
                     {
                         SelectedOptions.Add(option.Name, option);
                         switch(option.Type)
                         {
                             case OptionTypeEnum.Double:
+                                if(i+1 >= args.Length)
+                                {
+                                    throw new Exception($"The option {option.Name} needs an input following the argument.");
+                                }
                                 option.GivenInput = double.Parse(args[i + 1]);
+                                i++;
                                 break;
                             case OptionTypeEnum.Int:
+                                if (i + 1 >= args.Length)
+                                {
+                                    throw new Exception($"The option {option.Name} needs an input following the argument.");
+                                }
                                 option.GivenInput = int.Parse(args[i + 1]);
+                                i++;
                                 break;
                             case OptionTypeEnum.String:
+                                if (i + 1 >= args.Length)
+                                {
+                                    throw new Exception($"The option {option.Name} needs an input following the argument.");
+                                }
                                 option.GivenInput = args[i+1];
+                                i++;
                                 break;
                             case OptionTypeEnum.Switch:
                                 option.GivenInput = true;
                                 break;
                         }
-                        continue;
+                        break;
                     }
                 }
             }
+        }
+
+
+        public static Options Parse(string[] args)
+        {
+            var options = new Options();
+            if (args.Length == 0)
+            {
+                options.PrintUsage();
+                Environment.Exit(0);
+            }
+            try
+            {
+                options.ParseOptions(args);
+                options.ValidateSelectedOptions();
+            }
+            catch (Exception ex)
+            {
+                options.PrintUsage();
+                Console.WriteLine($"\nAn error occured: {ex.Message}");
+                Console.WriteLine($"\nThe StackTrace was: \n{ex.StackTrace}\n");
+                Environment.Exit(0);
+            }
+            return options;
         }
     }
 }
